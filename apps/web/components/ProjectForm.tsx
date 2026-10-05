@@ -70,6 +70,12 @@ export function ProjectForm({
           setStep(2);
           return;
         }
+        // Enter in an earlier step of a new project moves on instead of creating it early.
+        if (isNew && step < last) {
+          e.preventDefault();
+          go(step + 1);
+          return;
+        }
         onSubmit(e);
       }}
       className="card space-y-5 rounded-[18px]! p-5 sm:p-7"
@@ -212,12 +218,14 @@ export function ProjectForm({
         {!isNew && step < last && (
           <button type="submit" className="btn h-12 px-5 sm:h-10" disabled={pending}>{t("Save", "บันทึก")}</button>
         )}
+        {/* Distinct keys: if React reused one <button> and flipped it to type="submit" mid-click,
+            the click on "Next" would submit the form straight from step 2. */}
         {step < last ? (
-          <button type="button" className="btn btn-primary h-12 flex-1 text-base sm:h-10 sm:flex-none sm:px-6 sm:text-sm" onClick={() => go(step + 1)}>
+          <button key="next" type="button" className="btn btn-primary h-12 flex-1 text-base sm:h-10 sm:flex-none sm:px-6 sm:text-sm" onClick={() => go(step + 1)}>
             {t("Next", "ต่อไป")}
           </button>
         ) : (
-          <button type="submit" className="btn btn-primary h-12 flex-1 text-base sm:h-10 sm:flex-none sm:px-6 sm:text-sm" disabled={pending}>
+          <button key="submit" type="submit" className="btn btn-primary h-12 flex-1 text-base sm:h-10 sm:flex-none sm:px-6 sm:text-sm" disabled={pending}>
             {isNew ? t("Create project", "สร้าง Project") : t("Save", "บันทึก")}
           </button>
         )}
