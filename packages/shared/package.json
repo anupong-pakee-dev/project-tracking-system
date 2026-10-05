@@ -1,0 +1,22 @@
+{
+  "name": "@tracker/shared",
+  "version": "0.2.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./types": "./src/types.ts",
+    "./dates": "./src/dates.ts",
+    "./forecast": "./src/forecast.ts",
+    "./api": "./src/api.ts",
+    "./tasks": "./src/tasks.ts",
+    "./i18n": "./src/i18n.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.3"
+  }
+}

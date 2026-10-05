@@ -1,0 +1,22 @@
+# Never upload local secrets or personal data when deploying with the Vercel CLI.
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+# Root only — a bare `data/` would also drop the /data page (apps/web/app/(app)/data).
+/data/
+
+# Build output, caches and local tooling — Vercel installs and builds fresh.
+node_modules
+**/node_modules
+**/.next
+**/src/generated
+**/.cache
+coverage
+*.tsbuildinfo
+.claude
+.github
+docker
+docker-compose.yml

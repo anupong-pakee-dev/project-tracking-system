@@ -1,0 +1,156 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ProjectStatus {
+  active
+  paused
+  done
+}
+
+enum LogKind {
+  update
+  scope
+}
+
+/// MoSCoW: must = needed for the MVP · should = important · could = nice to have if time allows.
+enum TaskPriority {
+  must
+  should
+  could
+}
+
+enum AuthTokenType {
+  verify_email
+  reset_password
+}
+
+model User {
+  id              String    @id @default(uuid()) @db.Uuid
+  /// Stored lower-cased.
+  email           String    @unique @db.VarChar(254)
+  /// scrypt$N$r$p$salt$hash. Null for accounts made with Google until they set a password.
+  passwordHash    String?   @map("password_hash")
+  /// Google account id ("sub"), once the user has signed in with Google.
+  googleId        String?   @unique @map("google_id") @db.VarChar(255)
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  sessions   Session[]
+  authTokens AuthToken[]
+  projects   Project[]
+
+  @@map("users")
+}
+
+/// Login session. Only a SHA-256 hash of the cookie token is stored.
+model Session {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  tokenHash  String   @unique @map("token_hash") @db.VarChar(64)
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastUsedAt DateTime @default(now()) @map("last_used_at") @db.Timestamptz(3)
+  userAgent  String?  @map("user_agent") @db.VarChar(300)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+/// Single-use email link token (verify email / reset password). Only its hash is stored.
+model AuthToken {
+  id        String        @id @default(uuid()) @db.Uuid
+  userId    String        @map("user_id") @db.Uuid
+  type      AuthTokenType
+  tokenHash String        @unique @map("token_hash") @db.VarChar(64)
+  expiresAt DateTime      @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime?     @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@map("auth_tokens")
+}
+
+/// Rate-limit counters shared by every API instance (in-memory limits don't work on serverless).
+/// `key` is a SHA-256 of route + client IP, so no raw IPs are stored.
+model RateLimit {
+  key     String   @id @db.VarChar(64)
+  count   Int
+  resetAt DateTime @map("reset_at") @db.Timestamptz(3)
+
+  @@index([resetAt])
+  @@map("rate_limits")
+}
+
+model Project {
+  id             String        @id @default(uuid()) @db.Uuid
+  /// Owner. Null only for projects created before accounts existed; the first account claims them.
+  userId         String?       @map("user_id") @db.Uuid
+  user           User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String        @db.VarChar(120)
+  description    String        @default("")
+  color          String        @db.VarChar(16)
+  startDate      DateTime      @map("start_date") @db.Date
+  targetDate     DateTime      @map("target_date") @db.Date
+  status         ProjectStatus @default(active)
+  /// Count only Mon–Fri when planning and forecasting.
+  skipWeekends   Boolean       @default(false) @map("skip_weekends")
+  /// Used only when the project has no tasks. 0–100.
+  manualProgress Float         @default(0) @map("manual_progress")
+  completedAt    DateTime?     @map("completed_at") @db.Date
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tasks Task[]
+  logs  ProgressLog[]
+
+  @@index([userId])
+  @@map("projects")
+}
+
+model Task {
+  id          String       @id @default(uuid()) @db.Uuid
+  projectId   String       @map("project_id") @db.Uuid
+  title       String       @db.VarChar(200)
+  /// Longer notes shown under the title on demand. Plain text, line breaks kept.
+  description String       @default("")
+  /// Relative effort; progress is weighted by this.
+  weight      Float        @default(1)
+  /// 0–100
+  progress    Int          @default(0)
+  order       Int          @map("sort_order")
+  /// Preset keys (see TASK_CATEGORIES in packages/shared) and/or text the user typed. 1–5 tags.
+  categories  String[]     @default(["other"]) @db.VarChar(40)
+  priority    TaskPriority @default(could)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, order])
+  @@map("tasks")
+}
+
+/// A snapshot of overall project progress at a point in time.
+model ProgressLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  date      DateTime @db.Date
+  progress  Float
+  note      String   @default("")
+  kind      LogKind  @default(update)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, date])
+  @@map("progress_logs")
+}

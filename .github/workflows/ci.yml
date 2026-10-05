@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: tracker
+          POSTGRES_PASSWORD: tracker
+          POSTGRES_DB: tracker_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U tracker -d tracker_test"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+
+    env:
+      # Integration tests migrate and WIPE this database.
+      TEST_DATABASE_URL: postgresql://tracker:tracker@localhost:5432/tracker_test
+      # Only needed so prisma.config.ts / env parsing have a value; tests use TEST_DATABASE_URL.
+      DATABASE_URL: postgresql://tracker:tracker@localhost:5432/unused
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      # Skip the root pretest hook (it starts docker compose); CI has its own Postgres service.
+      - run: npm test --workspaces --if-present
+      - run: npm run build -w @tracker/web
+        env:
+          API_URL: https://api.example.invalid
+          API_TOKEN: ci-placeholder-token-that-is-long-enough-123456

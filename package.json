@@ -1,0 +1,36 @@
+{
+  "name": "project-tracking-system",
+  "version": "0.3.1",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": "24.x"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "setup:env": "node scripts/setup-env.mjs",
+    "predev": "node scripts/ensure-local-db.mjs",
+    "prestart": "node scripts/ensure-local-db.mjs",
+    "pretest": "node scripts/ensure-local-db.mjs",
+    "dev": "concurrently -k -n api,web -c blue,magenta \"npm run dev -w @tracker/api\" \"npm run dev -w @tracker/web\"",
+    "build": "npm run build -w @tracker/api && npm run build -w @tracker/web",
+    "start": "concurrently -k -n api,web -c blue,magenta \"npm run start -w @tracker/api\" \"npm run start -w @tracker/web\"",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose stop",
+    "db:migrate": "npm run db:migrate -w @tracker/api",
+    "db:deploy": "npm run db:deploy -w @tracker/api",
+    "db:studio": "npm run db:studio -w @tracker/api",
+    "db:import-json": "npm run db:import-json -w @tracker/api"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.1",
+    "concurrently": "^10.0.5",
+    "typescript": "^5"
+  }
+}
